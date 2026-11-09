@@ -32,8 +32,34 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.swp81x.nrsuite.Pcap22000UiState
+import com.swp81x.nrsuite.WpsPixieLiveUiState
+import com.swp81x.nrsuite.WpsPixieUiState
+import com.swp81x.nrsuite.core.defense.ClientPresenceMode
+import com.swp81x.nrsuite.core.defense.DeauthChannelMode
+import com.swp81x.nrsuite.core.defense.DeauthFeedFilter
+import com.swp81x.nrsuite.core.eapol.EapolHandshake
+import com.swp81x.nrsuite.core.geo.BssidGeolocationState
+import com.swp81x.nrsuite.core.geo.BssidNearbyState
+import com.swp81x.nrsuite.core.handshake.AutoHandshakeUiState
+import com.swp81x.nrsuite.core.handshake.PwnModeState
+import com.swp81x.nrsuite.core.hid.BlePinBruteforceUiState
+import com.swp81x.nrsuite.core.hid.PinBruteforceUiState
+import com.swp81x.nrsuite.core.ir.IrCommonButtonsState
+import com.swp81x.nrsuite.core.ir.IrDatabaseUiState
+import com.swp81x.nrsuite.core.ir.IrJammerUiState
+import com.swp81x.nrsuite.core.ir.IrPhoneCapabilities
+import com.swp81x.nrsuite.core.ir.IrSearchUiState
+import com.swp81x.nrsuite.core.ir.IrTransmitBackend
+import com.swp81x.nrsuite.core.oui.OuiDatabaseStatus
+import com.swp81x.nrsuite.core.rfid.RfidUiState
+import com.swp81x.nrsuite.core.sensors.Ld2450UiState
 import com.swp81x.nrsuite.core.session.ConnectionState
+import com.swp81x.nrsuite.core.update.AppUpdateDownloadState
+import com.swp81x.nrsuite.core.update.FirmwareAssetDownloadState
 import com.swp81x.nrsuite.core.wifi.WifiBand
+import com.swp81x.nrsuite.core.wpa.CrackerSourceType
+import com.swp81x.nrsuite.core.wps.WpsAttemptDetectorUiState
 
 /**
  * UI-only preview build.
@@ -102,7 +128,7 @@ fun NRSuiteApp() {
                 permissionRevision = 0,
                 devices = emptyList(),
                 deviceConnectionStates = emptyMap(),
-                deviceFingerprint = { },
+                deviceFingerprint = { _ -> "" },
                 pendingPermissionRequests = emptySet(),
                 disconnectingFingerprints = emptySet(),
                 usbManager = usbManager,
@@ -159,9 +185,9 @@ fun NRSuiteApp() {
                 onChooseFirmware = { },
                 onClearFirmware = { },
                 onRefreshDevices = { },
-                onRequestPermission = { },
-                onSelectFlashTarget = { },
-                onStartFirmwareFlash = { },
+                onRequestPermission = { _ -> },
+                onSelectFlashTarget = { _ -> },
+                onStartFirmwareFlash = { _, _, _ -> },
             )
             }
             composable("device") {
@@ -170,13 +196,13 @@ fun NRSuiteApp() {
                 connectionState = ConnectionState.Disconnected,
                 devices = emptyList(),
                 deviceConnectionStates = emptyMap(),
-                deviceFingerprint = { },
+                deviceFingerprint = { _ -> "" },
                 pendingPermissionRequests = emptySet(),
                 disconnectingFingerprints = emptySet(),
                 onRefresh = { },
-                onConnect = { },
+                onConnect = { _ -> },
                 onDisconnect = { },
-                onDisconnectDevice = { },
+                onDisconnectDevice = { _ -> },
             )
             }
             composable("more") {
@@ -191,7 +217,7 @@ fun NRSuiteApp() {
             showBandSelector = false,
             fiveGhzAvailable = false,
             fiveGhzUnavailableMessage = "",
-            onBandSelected = { },
+            onBandSelected = { _ -> },
             onScan = { },
         )
         }
@@ -206,7 +232,7 @@ fun NRSuiteApp() {
             scanning = false,
             networks = emptyList(),
             onScanWifi = { },
-            onStart = { },
+            onStart = { _ -> },
             onStop = { },
         )
         }
@@ -221,12 +247,12 @@ fun NRSuiteApp() {
             observations = emptyList(),
             candidates = emptyList(),
             deauthEnabled = false,
-            onFixedChange = { },
-            onChannelChange = { },
-            onDeauthToggle = { },
-            onStart = { },
+            onFixedChange = { _ -> },
+            onChannelChange = { _ -> },
+            onDeauthToggle = { _ -> },
+            onStart = { _ -> },
             onStop = { },
-            onForceReconnect = { },
+            onForceReconnect = { _ -> },
             onClearCandidates = { },
             onClearObservations = { },
         )
@@ -240,7 +266,7 @@ fun NRSuiteApp() {
             entries = emptyList(),
             frameCount = 0L,
             allowedChannels = emptyList(),
-            onStart = { },
+            onStart = { _, _ -> },
             onStop = { },
         )
         }
@@ -260,10 +286,10 @@ fun NRSuiteApp() {
             ssidCount = 0,
             activeChannel = 0,
             savedLists = emptyMap(),
-            onSaveListAction = { },
-            onRenameListAction = { },
-            onDeleteList = { },
-            onStart = { },
+            onSaveListAction = { _, _ -> },
+            onRenameListAction = { _, _ -> },
+            onDeleteList = { _ -> },
+            onStart = { _, _, _, _, _ -> },
             onStop = { },
         )
         }
@@ -280,7 +306,7 @@ fun NRSuiteApp() {
             scanning = false,
             networks = emptyList(),
             onScanWifi = { },
-            onStart = { },
+            onStart = { _, _, _, _, _ -> },
             onStop = { },
         )
         }
@@ -303,7 +329,7 @@ fun NRSuiteApp() {
             eventLog = emptyList(),
             onChooseHtml = { },
             onClearEventLog = { },
-            onStart = { },
+            onStart = { _, _, _ -> },
             onStop = { },
         )
         }
@@ -324,7 +350,7 @@ fun NRSuiteApp() {
             onClearEventLog = { },
             onScanWifi = { },
             onChooseHtml = { },
-            onStart = { },
+            onStart = { _, _, _ -> },
             onStop = { },
             onClearPasswords = { },
         )
@@ -337,16 +363,16 @@ fun NRSuiteApp() {
             feed = emptyList(),
             pwnMode = PwnModeState(),
             captures = emptyList(),
-            onStart = { },
+            onStart = { _ -> },
             onStop = { },
-            onResumeSession = { },
-            onDeleteSession = { },
+            onResumeSession = { _ -> },
+            onDeleteSession = { _ -> },
             onClearSessions = { },
-            onPwnModeEnabledChange = { },
-            onAddPwnPassword = { },
-            onRemovePwnPassword = { },
-            onCrackCapture = { },
-            onDeleteCapture = { },
+            onPwnModeEnabledChange = { _ -> },
+            onAddPwnPassword = { _ -> },
+            onRemovePwnPassword = { _ -> },
+            onCrackCapture = { _ -> },
+            onDeleteCapture = { _ -> },
             onResetStats = { },
         )
         }
@@ -355,9 +381,9 @@ fun NRSuiteApp() {
             connected = false,
             running = false,
             channelMode = DeauthChannelMode.TARGETED,
-            onChannelModeChange = { },
+            onChannelModeChange = { _ -> },
             hopIntervalMs = 0,
-            onHopIntervalChange = { },
+            onHopIntervalChange = { _ -> },
             framesPerSecond = 0,
             totalFrames = 0,
             uniqueSourceCount = 0,
@@ -368,12 +394,12 @@ fun NRSuiteApp() {
             scanResults = emptyList(),
             selectedTarget = null,
             channel = 0,
-            onSelectTarget = { },
+            onSelectTarget = { _ -> },
             onScanClick = { },
             isScanning = false,
-            onFeedFilterChange = { },
+            onFeedFilterChange = { _ -> },
             onClearFeed = { },
-            onStart = { },
+            onStart = { _ -> },
             onStop = { },
         )
         }
@@ -405,12 +431,12 @@ fun NRSuiteApp() {
             clients = emptyList(),
             frameCount = 0L,
             lastTriggerAt = null,
-            onModeChange = { },
-            onFixedChange = { },
-            onChannelChange = { },
+            onModeChange = { _ -> },
+            onFixedChange = { _ -> },
+            onChannelChange = { _ -> },
             onScanWifi = { },
-            onSelectTarget = { },
-            onStart = { },
+            onSelectTarget = { _ -> },
+            onStart = { _ -> },
             onStop = { },
             onTriggerReconnect = { },
             onClear = { },
@@ -430,7 +456,7 @@ fun NRSuiteApp() {
             connected = false,
             state = WpsAttemptDetectorUiState(),
             onScanWpsTargets = { },
-            onStart = { },
+            onStart = { _, _, _ -> },
             onStop = { },
         )
         }
@@ -442,7 +468,7 @@ fun NRSuiteApp() {
             stopping = false,
             active = false,
             devices = emptyList(),
-            onActiveChange = { },
+            onActiveChange = { _ -> },
             onStart = { },
             onStop = { },
             onClear = { },
@@ -459,7 +485,7 @@ fun NRSuiteApp() {
             devices = emptyList(),
             services = emptyList(),
             status = "",
-            onSelectTarget = { },
+            onSelectTarget = { _ -> },
             onStartScan = { },
             onStopScan = { },
             onStart = { },
@@ -484,14 +510,14 @@ fun NRSuiteApp() {
             onStart = { },
             onStop = { },
             onRefresh = { },
-            onMaxRangeChange = { },
-            onZoneAlertChange = { },
-            onMeshBroadcastChange = { },
-            onHeartbeatEnabledChange = { },
-            onScanDurationChange = { },
-            onSleepDurationChange = { },
-            onLimitDotCountChange = { },
-            onMaxDotsChange = { },
+            onMaxRangeChange = { _ -> },
+            onZoneAlertChange = { _ -> },
+            onMeshBroadcastChange = { _ -> },
+            onHeartbeatEnabledChange = { _ -> },
+            onScanDurationChange = { _ -> },
+            onSleepDurationChange = { _ -> },
+            onLimitDotCountChange = { _ -> },
+            onMaxDotsChange = { _ -> },
         )
         }
         composable("module/mesh") {
@@ -517,16 +543,16 @@ fun NRSuiteApp() {
             globalKeyId = null,
             nodes = emptyList(),
             onRefresh = { },
-            onPassphraseChange = { },
-            onKeyIdChange = { },
-            onChannelChange = { },
-            onCheckPassphrase = { },
-            onProvision = { },
+            onPassphraseChange = { _ -> },
+            onKeyIdChange = { _ -> },
+            onChannelChange = { _ -> },
+            onCheckPassphrase = { _ -> },
+            onProvision = { _, _, _ -> },
             onProvisionWithSavedCredentials = { },
-            onAuthenticateAndActivate = { },
+            onAuthenticateAndActivate = { _ -> },
             onAuthenticateStored = { },
             onDeactivate = { },
-            onApplyChannel = { },
+            onApplyChannel = { _ -> },
             onForgetPassphrase = { },
             onClearKeys = { },
             onClearNodes = { },
@@ -540,12 +566,12 @@ fun NRSuiteApp() {
             geolocationState = BssidGeolocationState.Idle,
             nearbyState = BssidNearbyState.Idle,
             history = emptyList(),
-            onLookup = { },
-            onSelectHistory = { },
-            onDeleteHistory = { },
+            onLookup = { _ -> },
+            onSelectHistory = { _ -> },
+            onDeleteHistory = { _ -> },
             onClearHistory = { },
             onClear = { },
-            onNearbyToggle = { },
+            onNearbyToggle = { _ -> },
         )
         }
         composable("module/bssid_geolocation") {
@@ -554,18 +580,18 @@ fun NRSuiteApp() {
             geolocationState = BssidGeolocationState.Idle,
             nearbyState = BssidNearbyState.Idle,
             history = emptyList(),
-            onLookup = { },
-            onSelectHistory = { },
-            onDeleteHistory = { },
+            onLookup = { _ -> },
+            onSelectHistory = { _ -> },
+            onDeleteHistory = { _ -> },
             onClearHistory = { },
             onClear = { },
-            onNearbyToggle = { },
+            onNearbyToggle = { _ -> },
         )
         }
         composable("module/credential_manager") {
         CredentialManagerScreen(
             sessions = emptyList(),
-            onDeleteSession = { },
+            onDeleteSession = { _ -> },
             onClearAll = { },
         )
         }
@@ -596,34 +622,34 @@ fun NRSuiteApp() {
             progressFraction = 0f,
             progressKnown = false,
             savedSessions = emptyList(),
-            onSourceSelected = { },
-            onSelectSession = { },
-            onSelectCapturedHandshake = { },
+            onSourceSelected = { _ -> },
+            onSelectSession = { _ -> },
+            onSelectCapturedHandshake = { _ -> },
             onChooseCustomPcap = { },
             onChoose22000 = { },
             onClearSource = { },
-            onManualModeChange = { },
-            onManualSsidChange = { },
-            onToggleTarget = { },
-            onSelectAllTargets = { },
+            onManualModeChange = { _ -> },
+            onManualSsidChange = { _ -> },
+            onToggleTarget = { _, _ -> },
+            onSelectAllTargets = { _ -> },
             onChooseWordlist = { },
             onClearWordlist = { },
             onStart = { },
             onPause = { },
             onResume = { },
             onStop = { },
-            onResumeSession = { },
-            onDeleteSession = { },
+            onResumeSession = { _ -> },
+            onDeleteSession = { _ -> },
         )
         }
         composable("module/pcap22000") {
         Pcap22000Screen(
             state = Pcap22000UiState(),
             onAddPcaps = { },
-            onRemoveInput = { },
+            onRemoveInput = { _ -> },
             onClearInputs = { },
-            onSetSsidOverride = { },
-            onRemoveSsidOverride = { },
+            onSetSsidOverride = { _, _ -> },
+            onRemoveSsidOverride = { _ -> },
             onExport = { },
         )
         }
@@ -632,9 +658,9 @@ fun NRSuiteApp() {
             connected = false,
             state = WpsPixieLiveUiState(),
             onScan = { },
-            onWpsOnlyChange = { },
-            onSelectTarget = { },
-            onCandidatePinChange = { },
+            onWpsOnlyChange = { _ -> },
+            onSelectTarget = { _ -> },
+            onCandidatePinChange = { _ -> },
             onUseGeneratedPin = { },
             onStart = { },
             onStop = { },
@@ -644,8 +670,8 @@ fun NRSuiteApp() {
         composable("module/ducky") {
         DuckyEditorScreen(
             savedScripts = emptyMap(),
-            onSaveScript = { },
-            onDeleteScript = { },
+            onSaveScript = { _, _ -> },
+            onDeleteScript = { _ -> },
         )
         }
         composable("module/badusb") {
@@ -653,7 +679,7 @@ fun NRSuiteApp() {
             devices = emptyList(),
             selectedTarget = null,
             selectedTargetState = null,
-            targetFingerprint = { },
+            targetFingerprint = { _ -> "" },
             deviceConnectionStates = emptyMap(),
             pendingPermissionRequests = emptySet(),
             uploading = false,
@@ -661,12 +687,12 @@ fun NRSuiteApp() {
             armedFingerprints = emptySet(),
             selectedPayloadName = null,
             savedScripts = emptyMap(),
-            onSelectTarget = { },
-            onChooseTarget = { },
-            onUseSavedScript = { },
+            onSelectTarget = { _ -> },
+            onChooseTarget = { _ -> },
+            onUseSavedScript = { _ -> },
             onChoosePayload = { },
             onClearPayload = { },
-            onArm = { },
+            onArm = { _ -> },
         )
         }
         composable("module/pin_bruteforce") {
@@ -674,21 +700,21 @@ fun NRSuiteApp() {
             connected = false,
             state = PinBruteforceUiState(),
             attempts = emptyList(),
-            onSourceChange = { },
-            onPinLengthChange = { },
-            onStartChange = { },
-            onEndChange = { },
-            onTimeoutChange = { },
-            onMaxAttemptsChange = { },
-            onPersistEveryChange = { },
-            onAttemptsBeforeTimeoutChange = { },
-            onCooldownChange = { },
-            onInterAttemptChange = { },
-            onTypingDelayChange = { },
-            onStartDelayChange = { },
-            onAutoResumeChange = { },
-            onSessionKeyChange = { },
-            onWordlistSelected = { },
+            onSourceChange = { _ -> },
+            onPinLengthChange = { _ -> },
+            onStartChange = { _ -> },
+            onEndChange = { _ -> },
+            onTimeoutChange = { _ -> },
+            onMaxAttemptsChange = { _ -> },
+            onPersistEveryChange = { _ -> },
+            onAttemptsBeforeTimeoutChange = { _ -> },
+            onCooldownChange = { _ -> },
+            onInterAttemptChange = { _ -> },
+            onTypingDelayChange = { _ -> },
+            onStartDelayChange = { _ -> },
+            onAutoResumeChange = { _ -> },
+            onSessionKeyChange = { _ -> },
+            onWordlistSelected = { _, _ -> },
             onClearWordlist = { },
             onStart = { },
             onStop = { },
@@ -701,26 +727,26 @@ fun NRSuiteApp() {
             connected = false,
             state = BlePinBruteforceUiState(),
             attempts = emptyList(),
-            onSourceChange = { },
-            onPinLengthChange = { },
-            onStartChange = { },
-            onEndChange = { },
-            onTimeoutChange = { },
-            onMaxAttemptsChange = { },
-            onPersistEveryChange = { },
-            onAttemptsBeforeTimeoutChange = { },
-            onCooldownChange = { },
-            onInterAttemptChange = { },
-            onTypingDelayChange = { },
-            onStartDelayChange = { },
-            onAutoResumeChange = { },
-            onAutoStartOnConnectChange = { },
-            onPauseOnDisconnectChange = { },
-            onAutoReconnectChange = { },
-            onSessionKeyChange = { },
-            onWordlistSelected = { },
+            onSourceChange = { _ -> },
+            onPinLengthChange = { _ -> },
+            onStartChange = { _ -> },
+            onEndChange = { _ -> },
+            onTimeoutChange = { _ -> },
+            onMaxAttemptsChange = { _ -> },
+            onPersistEveryChange = { _ -> },
+            onAttemptsBeforeTimeoutChange = { _ -> },
+            onCooldownChange = { _ -> },
+            onInterAttemptChange = { _ -> },
+            onTypingDelayChange = { _ -> },
+            onStartDelayChange = { _ -> },
+            onAutoResumeChange = { _ -> },
+            onAutoStartOnConnectChange = { _ -> },
+            onPauseOnDisconnectChange = { _ -> },
+            onAutoReconnectChange = { _ -> },
+            onSessionKeyChange = { _ -> },
+            onWordlistSelected = { _, _ -> },
             onClearWordlist = { },
-            onStartAdvertising = { },
+            onStartAdvertising = { _ -> },
             onStopAdvertising = { },
             onStart = { },
             onPause = { },
@@ -745,19 +771,19 @@ fun NRSuiteApp() {
             modifiers = emptySet(),
             modifierHold = false,
             bleScriptRunning = false,
-            onUseSavedScript = { },
+            onUseSavedScript = { _ -> },
             onChoosePayload = { },
             onClearPayload = { },
-            onStartAdvertising = { },
+            onStartAdvertising = { _ -> },
             onStop = { },
             onRunPayload = { },
-            onRealtimeInput = { },
-            onSpecialKey = { },
-            onModifierChange = { },
-            onModifierHoldChange = { },
-            onMouseMove = { },
-            onMouseScroll = { },
-            onMouseButton = { },
+            onRealtimeInput = { _, _ -> },
+            onSpecialKey = { _ -> },
+            onModifierChange = { _, _ -> },
+            onModifierHoldChange = { _ -> },
+            onMouseMove = { _, _ -> },
+            onMouseScroll = { _ -> },
+            onMouseButton = { _, _ -> },
         )
         }
         composable("module/storage") {
@@ -769,7 +795,7 @@ fun NRSuiteApp() {
             usedBytes = 0L,
             freeBytes = 0L,
             onRefresh = { },
-            onDelete = { },
+            onDelete = { _ -> },
             onStartMassStorage = { },
         )
         }
@@ -778,14 +804,14 @@ fun NRSuiteApp() {
             connectionState = ConnectionState.Disconnected,
             devices = emptyList(),
             deviceConnectionStates = emptyMap(),
-            deviceFingerprint = { },
+            deviceFingerprint = { _ -> "" },
             pendingPermissionRequests = emptySet(),
             disconnectingFingerprints = emptySet(),
             usbManager = usbManager,
             onRefresh = { },
-            onConnect = { },
+            onConnect = { _ -> },
             onDisconnect = { },
-            onDisconnectDevice = { },
+            onDisconnectDevice = { _ -> },
         )
         }
         composable("module/serial_monitor") {
@@ -802,16 +828,16 @@ fun NRSuiteApp() {
             blockingMessage = null,
             errorMessage = null,
             permissionRevision = 0,
-            hasPermission = { },
+            hasPermission = { _ -> false },
             onRefreshDevices = { },
-            onSelectDevice = { },
-            onRequestPermission = { },
-            onConnect = { },
+            onSelectDevice = { _ -> },
+            onRequestPermission = { _ -> },
+            onConnect = { _, _ -> },
             onDisconnect = { },
-            onBaudChange = { },
-            onHexModeChange = { },
-            onInputChange = { },
-            onLineEndingChange = { },
+            onBaudChange = { _ -> },
+            onHexModeChange = { _ -> },
+            onInputChange = { _ -> },
+            onLineEndingChange = { _ -> },
             onSend = { },
             onClearLog = { },
             onExport = { },
@@ -833,15 +859,15 @@ fun NRSuiteApp() {
             loopIntervalMs = 0,
             scanProgress = null,
             errorMessage = null,
-            onImport = { },
+            onImport = { _ -> },
             onRefreshLibrary = { },
-            onOpenRemote = { },
+            onOpenRemote = { _ -> },
             openedFromFinder = false,
-            onToggleFavorite = { },
-            onDeleteRemote = { },
-            onSendSignal = { },
-            onToggleSignal = { },
-            onSetLoopMode = { },
+            onToggleFavorite = { _ -> },
+            onDeleteRemote = { _ -> },
+            onSendSignal = { _ -> },
+            onToggleSignal = { _ -> },
+            onSetLoopMode = { _ -> },
             onStopTransmission = { },
             onClearMessages = { },
         )
@@ -859,14 +885,14 @@ fun NRSuiteApp() {
             onRefresh = { },
             onStartReceiver = { },
             onStopReceiver = { },
-            onSavePending = { },
+            onSavePending = { _ -> },
             onDiscardPending = { },
             onReplayPending = { },
-            onDeleteLearned = { },
-            onRenameLearned = { },
-            onReplayLearned = { },
+            onDeleteLearned = { _ -> },
+            onRenameLearned = { _, _ -> },
+            onReplayLearned = { _ -> },
             onClearLearned = { },
-            onSaveRemote = { },
+            onSaveRemote = { _ -> },
         )
         }
         composable("module/ir_search") {
@@ -876,10 +902,10 @@ fun NRSuiteApp() {
             commonButtonsState = IrCommonButtonsState(),
             initialCategory = "",
             initialBrand = "",
-            onSelectionChanged = { },
-            onPrepareCommonButtons = { },
-            onRefreshCommonButtons = { },
-            onStart = { },
+            onSelectionChanged = { _, _ -> },
+            onPrepareCommonButtons = { _, _, _ -> },
+            onRefreshCommonButtons = { _, _, _ -> },
+            onStart = { _, _, _, _ -> },
             onPause = { },
             onResume = { },
             onPrevious = { },
@@ -888,15 +914,15 @@ fun NRSuiteApp() {
             onToggleLoop = { },
             onStop = { },
             onFound = { },
-            onOpenMarkedRemote = { },
-            onRemoveMarkedResult = { },
+            onOpenMarkedRemote = { _ -> },
+            onRemoveMarkedResult = { _ -> },
         )
         }
         composable("module/ir_jammer") {
         IrJammerScreen(
             state = IrJammerUiState(),
             txAvailable = false,
-            onStart = { },
+            onStart = { _ -> },
             onStop = { },
         )
         }
@@ -913,17 +939,17 @@ fun NRSuiteApp() {
             irDatabaseMetadata = null,
             esp32 = null,
             errorMessage = null,
-            onSetBackend = { },
-            onSetLoopInterval = { },
+            onSetBackend = { _ -> },
+            onSetLoopInterval = { _ -> },
             onRefreshCapabilities = { },
             onRescanLibrary = { },
             onDownloadIrDatabase = { },
             onRetryIrDatabaseOperation = { },
             onCancelIrDatabaseOperation = { },
-            onImportIrZip = { },
+            onImportIrZip = { _ -> },
             onDeleteIrDatabase = { },
             onRefreshEsp32Ir = { },
-            onSetIrEsp32Pins = { },
+            onSetIrEsp32Pins = { _, _ -> },
         )
         }
         composable("module/rfid") {
@@ -943,7 +969,7 @@ fun NRSuiteApp() {
             onChoosePcap = { },
             onChooseSerialLog = { },
             onClear = { },
-            onAuthKeyChange = { },
+            onAuthKeyChange = { _ -> },
             onStart = { },
             onStop = { },
         )
@@ -952,7 +978,7 @@ fun NRSuiteApp() {
         OfflineMacLookupScreen(
             result = null,
             ouiDatabaseStatus = OuiDatabaseStatus.Checking,
-            onLookup = { },
+            onLookup = { _ -> },
             onClear = { },
             onDownloadOuiDatabase = { },
         )
@@ -962,7 +988,7 @@ fun NRSuiteApp() {
             connected = false,
             state = RfidUiState(),
             onRefresh = { },
-            onSave = { },
+            onSave = { _, _ -> },
         )
         }
         composable("extra/sensor_config") {
@@ -970,7 +996,7 @@ fun NRSuiteApp() {
             connected = false,
             ld2450 = Ld2450UiState(),
             onRefresh = { },
-            onSetLd2450Pins = { },
+            onSetLd2450Pins = { _, _ -> },
         )
         }
         composable("extra/wifi_config") {
@@ -980,8 +1006,8 @@ fun NRSuiteApp() {
             showBandSelector = false,
             fiveGhzAvailable = false,
             fiveGhzUnavailableMessage = "",
-            onBandSelected = { },
-            onCountrySelected = { },
+            onBandSelected = { _ -> },
+            onCountrySelected = { _ -> },
             captureOutputLabel = "",
             hasCustomCaptureOutput = false,
             onChooseCaptureOutput = { },
@@ -991,8 +1017,8 @@ fun NRSuiteApp() {
         composable("extra/ducky_editor") {
         DuckyEditorScreen(
             savedScripts = emptyMap(),
-            onSaveScript = { },
-            onDeleteScript = { },
+            onSaveScript = { _, _ -> },
+            onDeleteScript = { _ -> },
         )
         }
         }

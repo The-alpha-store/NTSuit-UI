@@ -34,14 +34,25 @@ been removed.
 
 ## Known caveats
 - This was built without access to the Android SDK or a Gradle/Google
-  Maven connection, so it has **not** been compiled or run. I did
-  extensive static verification instead: every `core.*`/top-level import
-  across the whole project was checked for a matching declaration, every
-  screen's real signature was parsed directly from source (not guessed)
-  to generate matching mock call sites, and brace/paren balance was
-  checked file-by-file. Open it in Android Studio and let it sync — some
-  small fixes may still be needed (an unused import, a default-value edge
-  case), but the structure should be sound.
+  Maven connection, so it was never compiled locally -- only statically
+  verified (import resolution, signature parsing, brace/paren balance).
+  A first real CI build caught three categories of real bugs, now fixed:
+  1. `ui/NRSuiteApp.kt` and `ui/ModuleCatalog.kt` were missing several
+     `import` statements for types they reference (e.g.
+     `OuiDatabaseStatus`, `AppUpdateDownloadState`, `ModuleCardSpec`).
+     Fixed by generating a complete import list from actual usage.
+  2. `ui/ModuleCatalog.kt` was missing `CategorySpec` and five
+     `*_MODULE_IDS` constants that `HomeScreen.kt` depends on -- these
+     used to live next to the module list in the original `NRSuiteApp.kt`
+     and got lost in the rewrite. Restored, same shape as the original.
+  3. Mock lambda placeholders for multi-parameter or non-`Unit`-returning
+     callbacks (e.g. `deviceFingerprint: (UsbDevice) -> String`) were
+     generated as a blind `{ }`, which doesn't satisfy the real arity or
+     return type. Regenerated arity- and return-type-aware (e.g.
+     `{ _ -> "" }`, `{ _, _, _ -> }`).
+  The GitHub Actions workflow is the real check -- push this and read its
+  log; it's a much stronger signal than anything verified here.
+
 - `ui/components/BssidMapView.kt` (kept, untouched) renders a map via a
   local Leaflet HTML/JS asset bundle that wasn't present in the uploaded
   project, so that one screen will likely show a blank WebView until you

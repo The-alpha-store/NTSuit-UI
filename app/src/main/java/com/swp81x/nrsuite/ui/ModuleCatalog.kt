@@ -28,6 +28,28 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiFind
 import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.swp81x.nrsuite.ui.components.ModuleCardSpec
+
+internal val WIFI_RECON_MODULE_IDS = listOf("wifi", "sniff", "probe_monitor", "channel_analyzer", "hidden_ap")
+internal val WIFI_ATTACK_MODULE_IDS =
+    listOf("wps_pixie_live", "evil_twin", "portal", "nrugochi", "deauth", "beacon")
+internal val WIFI_DEFEND_MODULE_IDS =
+    listOf("deauth_detector", "rogue_ap", "client_presence", "wps_lock_detector", "wps_attempt_detector")
+internal val WIFI_ALL_MODULE_IDS =
+    WIFI_RECON_MODULE_IDS + WIFI_ATTACK_MODULE_IDS + WIFI_DEFEND_MODULE_IDS
+internal val IR_CATEGORY_MODULE_IDS =
+    listOf("ir", "ir_receiver", "ir_search", "ir_jammer")
+
+internal data class CategorySpec(
+    val name: String,
+    val icon: ImageVector,
+    val iconTint: Color,
+    val moduleIds: List<String>,
+    val available: Boolean,
+    val statusLabel: String? = null,
+)
 
 internal val modules = listOf(
 
