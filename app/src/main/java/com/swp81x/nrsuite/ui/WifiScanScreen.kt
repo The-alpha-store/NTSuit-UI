@@ -1,0 +1,365 @@
+package com.swp81x.nrsuite.ui
+
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.swp81x.nrsuite.core.wifi.WifiBand
+import com.swp81x.nrsuite.ui.components.NetworkStatusBadge
+import com.swp81x.nrsuite.ui.components.WifiBandSelector
+import com.swp81x.nrsuite.ui.util.copyWithToast
+import com.swp81x.nrsuite.ui.theme.NrAccent
+import com.swp81x.nrsuite.ui.theme.StatusAmber
+import com.swp81x.nrsuite.ui.util.ouiStatusColor
+import com.swp81x.nrsuite.ui.util.securityColor
+import com.swp81x.nrsuite.ui.util.signalQualityColor
+import com.swp81x.nrsuite.ui.theme.NrOutline
+import com.swp81x.nrsuite.ui.theme.NrOnSurfaceVariant
+import org.json.JSONObject
+
+@Composable
+fun WifiScanScreen(
+    connected: Boolean,
+    scanning: Boolean,
+    networks: List<JSONObject>,
+    band: WifiBand,
+    showBandSelector: Boolean,
+    fiveGhzAvailable: Boolean,
+    fiveGhzUnavailableMessage: String,
+    onBandSelected: (WifiBand) -> Unit,
+    onScan: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var configExpanded by remember { mutableStateOf(true) }
+    val visibleNetworks = remember(networks, band) {
+        when (band) {
+            WifiBand.AUTO -> networks
+            WifiBand.BAND_2_4 -> networks.filter { it.optInt("channel", 0) in 1..14 }
+            WifiBand.BAND_5 -> networks.filter { it.optInt("channel", 0) >= 36 }
+        }
+    }
+
+    LaunchedEffect(scanning) {
+        if (scanning) configExpanded = false
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+        ) {
+            if (showBandSelector) {
+                ScanConfigCard(
+                    expanded = configExpanded,
+                    onToggle = { configExpanded = !configExpanded },
+                    band = band,
+                    fiveGhzAvailable = fiveGhzAvailable,
+                    onBandSelected = onBandSelected,
+                    onUnavailableBandClicked = {
+                        Toast.makeText(context, fiveGhzUnavailableMessage, Toast.LENGTH_SHORT).show()
+                    },
+                )
+
+                Spacer(Modifier.height(10.dp))
+            }
+
+            Text(
+                text = if (scanning) {
+                    "Scanning ${band.label} channels..."
+                } else {
+                    "Results arrive as asynchronous scan_ap events and are sorted by RSSI."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = NrOnSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                text = "Scan results (${visibleNetworks.size})",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            if (visibleNetworks.isEmpty()) {
+                EmptyResults(scanning = scanning)
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(visibleNetworks, key = { it.optString("bssid", it.toString()) }) { network ->
+                        NetworkRow(network)
+                    }
+                    item { Spacer(Modifier.height(72.dp)) }
+                }
+            }
+        }
+
+        if (connected) {
+            ModuleActionFab(
+                onClick = onScan,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(20.dp),
+                containerColor = NrAccent,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
+                if (scanning) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Icon(Icons.Default.Search, contentDescription = "Scan WiFi")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScanConfigCard(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    band: WifiBand,
+    fiveGhzAvailable: Boolean,
+    onBandSelected: (WifiBand) -> Unit,
+    onUnavailableBandClicked: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(0.5.dp, NrOutline),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Wifi,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "Scan configuration",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Band: ${band.label}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NrOnSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = onToggle) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                    )
+                }
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Band",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    WifiBandSelector(
+                        selectedBand = band,
+                        fiveGhzAvailable = fiveGhzAvailable,
+                        onBandSelected = onBandSelected,
+                        onUnavailableBandClicked = { onUnavailableBandClicked() },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyResults(scanning: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(0.5.dp, NrOutline),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Wifi,
+                contentDescription = null,
+                tint = NrOnSurfaceVariant,
+                modifier = Modifier.size(32.dp),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = if (scanning) "Waiting for scan results..." else "No scan results yet.",
+                color = NrOnSurfaceVariant,
+            )
+            Text(
+                text = "Tap the scan button to start.",
+                style = MaterialTheme.typography.bodySmall,
+                color = NrOnSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun NetworkRow(network: JSONObject) {
+    val ssid = network.optString("ssid").ifBlank { "(hidden)" }
+    val bssid = network.optString("bssid")
+    val channel = network.optInt("channel")
+    val rssi = network.optInt("rssi")
+    val security = network.optString("security").ifBlank { "?" }
+    val wps = network.optBoolean("wps")
+    val vendor = network.optString("vendor").takeIf { it.isNotBlank() }
+    val ouiWhitelisted = network.optBoolean("oui_whitelisted")
+    val ouiBlacklisted = network.optBoolean("oui_blacklisted")
+    val securityTint = securityColor(security)
+    val ouiTint = ouiStatusColor(vendor, ouiWhitelisted, ouiBlacklisted)
+    val signalTint = signalQualityColor(rssi)
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(0.5.dp, NrOutline),
+        shape = RoundedCornerShape(10.dp),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = ssid,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                SignalBars(rssi = rssi)
+            }
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = bssid,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = NrOnSurfaceVariant,
+                modifier = Modifier.clickable {
+                    clipboardManager.copyWithToast(context, bssid)
+                },
+            )
+            val bandLabel = if (network.optString("band") == "5g") "5 GHz" else "2.4 GHz"
+            Text(
+                text = "$bandLabel · ch $channel  •  $rssi dBm",
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = signalTint,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = security,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color = securityTint,
+                    maxLines = 1,
+                )
+                if (vendor != null) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "• $vendor",
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        color = ouiTint,
+                        maxLines = 1,
+                    )
+                }
+                if (wps) {
+                    Spacer(Modifier.width(6.dp))
+                    NetworkStatusBadge(text = "WPS", color = StatusAmber)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SignalBars(rssi: Int) {
+    val bars = when {
+        rssi >= -50 -> 4
+        rssi >= -65 -> 3
+        rssi >= -75 -> 2
+        rssi >= -85 -> 1
+        else -> 0
+    }
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        (1..4).forEach { index ->
+            Spacer(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height((4 + index * 4).dp)
+                    .background(
+                        color = if (index <= bars) signalQualityColor(rssi) else MaterialTheme.colorScheme.outline,
+                        shape = RoundedCornerShape(1.dp),
+                    ),
+            )
+        }
+    }
+}

@@ -1,0 +1,19 @@
+package com.swp81x.nrsuite.core.wifi
+
+import com.swp81x.nrsuite.core.wps.WpsLockState
+
+/**
+ * UI model for a scanned AP/target used by target-selection screens.
+ */
+data class NetworkTarget(
+    val ssid: String,
+    val bssid: String,
+    val channel: Int,
+    val rssi: Int,
+    val security: String,
+    val wps: Boolean = false,
+    val vendor: String? = null,
+    val ouiWhitelisted: Boolean = false,
+    val ouiBlacklisted: Boolean = false,
+    val wpsLockState: WpsLockState? = null,
+)

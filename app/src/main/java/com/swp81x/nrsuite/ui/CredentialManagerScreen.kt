@@ -1,0 +1,714 @@
+package com.swp81x.nrsuite.ui
+
+import android.content.Intent
+import android.graphics.Bitmap
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import com.swp81x.nrsuite.core.credentials.CapturedCredential
+import com.swp81x.nrsuite.core.credentials.CredentialSession
+import com.swp81x.nrsuite.core.credentials.CredentialSource
+import com.swp81x.nrsuite.core.credentials.CredentialStatus
+import com.swp81x.nrsuite.core.credentials.WifiQrPayload
+import com.swp81x.nrsuite.ui.components.NrFilterChip
+import com.swp81x.nrsuite.ui.components.StatusIndicator
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
+import com.swp81x.nrsuite.ui.util.copyWithToast
+import com.swp81x.nrsuite.ui.theme.NrOnSurface
+import com.swp81x.nrsuite.ui.theme.NrOnSurfaceVariant
+import com.swp81x.nrsuite.ui.theme.NrOutline
+import com.swp81x.nrsuite.ui.theme.NrSurface
+import com.swp81x.nrsuite.ui.theme.NrSurfaceVariant
+import com.swp81x.nrsuite.ui.theme.StatusAmber
+import com.swp81x.nrsuite.ui.theme.StatusGreen
+import com.swp81x.nrsuite.ui.theme.StatusNeutral
+import com.swp81x.nrsuite.ui.theme.StatusRed
+import java.io.File
+import java.io.FileOutputStream
+
+@Composable
+fun CredentialManagerScreen(
+    sessions: List<CredentialSession>,
+    onDeleteSession: (String) -> Unit,
+    onClearAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    var deleteTarget by remember { mutableStateOf<CredentialSession?>(null) }
+    var confirmClearAll by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var sourceFilter by remember { mutableStateOf<CredentialSource?>(null) }
+    var detailSession by remember { mutableStateOf<CredentialSession?>(null) }
+    var qrTarget by remember { mutableStateOf<QrCredentialTarget?>(null) }
+
+    val displayedSessions = sessions.filter { session ->
+        val matchesSource = sourceFilter == null || session.source == sourceFilter
+        val needle = query.trim()
+        val matchesQuery = needle.isBlank() ||
+            session.ssid.contains(needle, ignoreCase = true) ||
+            session.bssid.contains(needle, ignoreCase = true) ||
+            session.credentials.any { credential ->
+                credential.value.contains(needle, ignoreCase = true) ||
+                    credential.details.values.any { it.contains(needle, ignoreCase = true) }
+            }
+        matchesSource && matchesQuery
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text("Search SSID, BSSID, password...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+            )
+
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                NrFilterChip(
+                    selected = sourceFilter == null,
+                    onClick = { sourceFilter = null },
+                    label = "All",
+                )
+                NrFilterChip(
+                    selected = sourceFilter == CredentialSource.EVIL_TWIN,
+                    onClick = { sourceFilter = CredentialSource.EVIL_TWIN },
+                    label = "Evil Twin",
+                )
+                NrFilterChip(
+                    selected = sourceFilter == CredentialSource.WPA_CRACKER,
+                    onClick = { sourceFilter = CredentialSource.WPA_CRACKER },
+                    label = "WPA Cracker",
+                )
+                NrFilterChip(
+                    selected = sourceFilter == CredentialSource.WPS_PIXIE,
+                    onClick = { sourceFilter = CredentialSource.WPS_PIXIE },
+                    label = "WPS Pixie",
+                )
+                NrFilterChip(
+                    selected = sourceFilter == CredentialSource.PORTAL,
+                    onClick = { sourceFilter = CredentialSource.PORTAL },
+                    label = "Portal",
+                )
+            }
+
+            if (sessions.isEmpty()) {
+                EmptyCredsState()
+            } else if (displayedSessions.isEmpty()) {
+                Text(
+                    text = "No sessions match the current search/filter.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NrOnSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 24.dp),
+                )
+            } else {
+                displayedSessions.forEach { session ->
+                    CredentialSessionCard(
+                        session = session,
+                        onCopyPassword = { value -> clipboard.copyWithToast(context, value) },
+                        onSharePcap = { path -> sharePcap(context, path) },
+                        onShareQr = { credential -> qrTarget = QrCredentialTarget(session, credential) },
+                        onDelete = { deleteTarget = session },
+                        onViewSubmissions = { detailSession = it },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(80.dp))
+        }
+
+        ModuleActionFab(
+            onClick = { if (sessions.isNotEmpty()) confirmClearAll = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .alpha(if (sessions.isEmpty()) 0.4f else 1f),
+            containerColor = NrSurfaceVariant,
+            contentColor = NrOnSurfaceVariant,
+        ) {
+            Icon(Icons.Default.Delete, contentDescription = "Clear all saved sessions")
+        }
+    }
+
+    deleteTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Delete session") },
+            text = {
+                Text(
+                    "Delete the saved Evil Twin session for " +
+                        "${target.ssid.ifBlank { "target" }}? Its PCAP file will be deleted too.",
+                    color = NrOnSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteSession(target.id)
+                    deleteTarget = null
+                }) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (confirmClearAll) {
+        AlertDialog(
+            onDismissRequest = { confirmClearAll = false },
+            title = { Text("Clear all sessions") },
+            text = {
+                Text(
+                    "Delete all saved credential sessions and their PCAP files?",
+                    color = NrOnSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearAll()
+                    confirmClearAll = false
+                }) {
+                    Text("Clear all")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearAll = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    qrTarget?.let { target ->
+        val payload = remember(target) {
+            WifiQrPayload.build(
+                ssid = target.session.ssid.ifBlank { "(hidden)" },
+                password = target.credential.value,
+            )
+        }
+        val qrBitmap = remember(payload) { generateWifiQrBitmap(payload, 720) }
+        AlertDialog(
+            onDismissRequest = { qrTarget = null },
+            title = { Text("Share Wi-Fi QR") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = target.session.ssid.ifBlank { "(hidden SSID)" },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NrOnSurface,
+                    )
+                    if (qrBitmap != null) {
+                        Image(
+                            bitmap = qrBitmap.asImageBitmap(),
+                            contentDescription = "Wi-Fi QR code",
+                            modifier = Modifier.size(240.dp),
+                        )
+                    } else {
+                        Text(
+                            text = "Could not generate the QR code.",
+                            color = StatusRed,
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            clipboard.copyWithToast(context, payload)
+                        },
+                        enabled = qrBitmap != null,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Copy QR payload")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        qrBitmap?.let { bitmap ->
+                            shareWifiQrImage(context, target.session.ssid, bitmap)
+                        }
+                    },
+                    enabled = qrBitmap != null,
+                ) {
+                    Text("Share image")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { qrTarget = null }) {
+                    Text("Close")
+                }
+            },
+        )
+    }
+
+    detailSession?.let { session ->
+        AlertDialog(
+            onDismissRequest = { detailSession = null },
+            title = { Text("Portal submissions") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = session.ssid.ifBlank { "(hidden)" },
+                        fontWeight = FontWeight.SemiBold,
+                        color = NrOnSurface,
+                    )
+                    session.credentials.forEachIndexed { index, credential ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = NrSurfaceVariant),
+                            shape = RoundedCornerShape(10.dp),
+                        ) {
+                            Column(Modifier.padding(10.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "#${index + 1}  ${credential.capturedAt}",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.Monospace),
+                                        color = NrOnSurfaceVariant,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    IconButton(onClick = {
+                                        val text = credential.details.entries.joinToString("\n") {
+                                            "${it.key}: ${it.value}"
+                                        }
+                                        clipboard.copyWithToast(context, text)
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentCopy,
+                                            contentDescription = "Copy submission",
+                                            tint = NrOnSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                credential.details.forEach { (key, value) ->
+                                    Text(
+                                        text = "$key: $value",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                        color = NrOnSurface,
+                                    )
+                                }
+                                if (credential.details.isEmpty()) {
+                                    Text(
+                                        text = credential.value,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                        color = NrOnSurface,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { detailSession = null }) {
+                    Text("Close")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EmptyCredsState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Default.Key,
+            contentDescription = null,
+            tint = NrOnSurfaceVariant,
+            modifier = Modifier.size(48.dp),
+        )
+        Text(
+            text = "No saved credential sessions",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = NrOnSurface,
+        )
+        Text(
+            text = "Run Evil Twin or the offline cracker to save a recovered password.",
+            style = MaterialTheme.typography.bodySmall,
+            color = NrOnSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun CredentialSessionCard(
+    session: CredentialSession,
+    onCopyPassword: (String) -> Unit,
+    onSharePcap: (String) -> Unit,
+    onShareQr: (CapturedCredential) -> Unit,
+    onDelete: () -> Unit,
+    onViewSubmissions: (CredentialSession) -> Unit,
+) {
+    val pcapFile = session.pcapPath?.let { File(it) }
+    val pcapAvailable = pcapFile?.exists() == true
+    val qrCredential = session.credentials
+        .firstOrNull { it.status == CredentialStatus.CORRECT }
+        ?.takeIf { session.source != CredentialSource.PORTAL }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = NrSurface),
+        border = BorderStroke(0.5.dp, NrOutline),
+        shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = session.ssid.ifBlank { "(hidden)" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NrOnSurface,
+                    )
+                    Text(
+                        text = session.bssid.ifBlank { "unknown BSSID" },
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        color = NrOnSurfaceVariant,
+                    )
+                    Text(
+                        text = sourceLabel(session.source),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete session",
+                        tint = NrOnSurfaceVariant,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = buildString {
+                    append("Started: ")
+                    append(session.startedAt.replace('T', ' '))
+                    session.endedAt?.let {
+                        append("  ·  Ended: ")
+                        append(it.replace('T', ' '))
+                    }
+                },
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = NrOnSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (pcapAvailable) "PCAP saved" else "No PCAP",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (pcapAvailable) StatusGreen else StatusNeutral,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (pcapAvailable) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = pcapFile?.name.orEmpty(),
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                        color = NrOnSurfaceVariant,
+                    )
+                }
+            }
+
+            if (session.source == CredentialSource.PORTAL) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "${session.credentials.size} captured submission(s)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = NrOnSurface,
+                )
+                session.credentials.lastOrNull()?.let { latest ->
+                    Text(
+                        text = "Latest: ${latest.capturedAt}  ·  ${latest.details.size} field(s)",
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                        color = NrOnSurfaceVariant,
+                    )
+                }
+                if (session.credentials.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = { onViewSubmissions(session) }) {
+                        Text("View submissions")
+                    }
+                }
+            } else if (session.credentials.isEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "No correct password captured.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NrOnSurfaceVariant,
+                )
+            } else {
+                Spacer(Modifier.height(10.dp))
+                val compactCredential = session.source == CredentialSource.EVIL_TWIN ||
+                    session.source == CredentialSource.WPA_CRACKER ||
+                    session.source == CredentialSource.WPS_PIXIE
+                session.credentials
+                    .filter { it.status == CredentialStatus.CORRECT }
+                    .forEach { credential ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = if (compactCredential) {
+                                    credential.value
+                                } else {
+                                    "[${credential.capturedAt}] ${credential.value}  :  ✓"
+                                },
+                                style = if (compactCredential) {
+                                    MaterialTheme.typography.titleMedium.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                } else {
+                                    MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace)
+                                },
+                                color = StatusGreen,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { onCopyPassword(credential.value) }) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Copy password",
+                                    tint = NrOnSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+
+                if (session.source == CredentialSource.WPS_PIXIE) {
+                    val pin = session.credentials
+                        .firstOrNull()
+                        ?.details
+                        ?.get("wps_pin")
+                        .orEmpty()
+                    if (pin.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "PIN: $pin",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.SemiBold,
+                                ),
+                                color = StatusGreen,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { onCopyPassword(pin) }) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Copy WPS PIN",
+                                    tint = NrOnSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { session.pcapPath?.let(onSharePcap) },
+                    enabled = pcapAvailable,
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Share PCAP")
+                }
+                if (qrCredential != null) {
+                    OutlinedButton(onClick = { onShareQr(qrCredential) }) {
+                        Icon(
+                            Icons.Default.QrCode2,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Share QR")
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun sourceLabel(source: CredentialSource): String = when (source) {
+    CredentialSource.EVIL_TWIN -> "Evil Twin"
+    CredentialSource.WPA_CRACKER -> "WPA Cracker"
+    CredentialSource.WPS_PIXIE -> "WPS Pixie"
+    CredentialSource.PORTAL -> "Portal"
+    CredentialSource.IMPORTED -> "Imported"
+}
+
+private data class QrCredentialTarget(
+    val session: CredentialSession,
+    val credential: CapturedCredential,
+)
+
+private fun generateWifiQrBitmap(payload: String, size: Int): Bitmap? = runCatching {
+    val matrix = QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, size, size)
+    val pixels = IntArray(size * size)
+    for (y in 0 until size) {
+        for (x in 0 until size) {
+            pixels[y * size + x] = if (matrix.get(x, y)) {
+                android.graphics.Color.BLACK
+            } else {
+                android.graphics.Color.WHITE
+            }
+        }
+    }
+    Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
+}.getOrNull()
+
+private fun shareWifiQrImage(
+    context: android.content.Context,
+    ssid: String,
+    bitmap: Bitmap,
+) {
+    runCatching {
+        val directory = File(context.cacheDir, "wifi-qr").apply { mkdirs() }
+        val safeName = ssid.ifBlank { "wifi" }
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .take(40)
+        val file = File(directory, "nrsuite-wifi-$safeName.png")
+        FileOutputStream(file).use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        }
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file,
+        )
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "Wi-Fi QR: $ssid")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share Wi-Fi QR"))
+    }
+}
+
+private fun sharePcap(context: android.content.Context, path: String) {
+    runCatching {
+        val file = File(path)
+        if (!file.exists()) return
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file,
+        )
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/vnd.tcpdump.pcap"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share Evil Twin PCAP"))
+    }
+}

@@ -1,0 +1,37 @@
+package com.swp81x.nrsuite.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// NRSuite dark technical palette.
+val NrBackground = Color(0xFF0D0F12)
+val NrSurface = Color(0xFF1A1D21)
+val NrSurfaceVariant = Color(0xFF24282D)
+val NrAccent = Color(0xFFA3E635)
+val NrOnBackground = Color(0xFFE6E9EE)
+val NrOnSurface = Color(0xFFE6E9EE)
+val NrOnSurfaceVariant = Color(0xFFAAB2BD)
+val NrOutline = Color(0xFF3A4047)
+
+val StatusGreen = NrAccent
+val StatusAmber = Color(0xFFF59E0B)
+val StatusRed = Color(0xFFEF4444)
+val StatusNeutral = Color(0xFF8B949E)
+val StatusInfo = Color(0xFF60A5FA)
+
+val CategoryDetectionBlue = Color(0xFF60A5FA)
+val CategoryAttackOrange = Color(0xFFFB923C)
+val CategoryHidPurple = Color(0xFFA78BFA)
+val CategoryStorageTeal = Color(0xFF14B8A6)
+val CategoryFirmwareGreen = Color(0xFF22C55E) // green, separated from storage teal
+val CategoryBleBlue = Color(0xFF22D3EE) // cyan, kept distinct from detection blue and dark storage teal
+val CategoryMeshIndigo = Color(0xFF7C6FF0) // mesh identity, distinct from NrAccent and BLE cyan
+val CategorySensorsBlue = Color(0xFF38BDF8) // sensor/radar identity, distinct from BLE cyan
+val CategoryWifiViolet = Color(0xFF8B5CF6) // WiFi identity, deeper and less neon than the other category accents
+val CategoryIrRose = Color(0xFFFB7185) // IR identity, distinct from status red and attack orange
+
+// Log level tints.
+val LogColorInfo = Color(0xFF8B949E)
+val LogColorUsb = Color(0xFF3D9BFF)
+val LogColorSuccess = Color(0xFF34D399)
+val LogColorError = Color(0xFFEF4444)
+val LogBgError = Color(0xFF2A0A0A)
